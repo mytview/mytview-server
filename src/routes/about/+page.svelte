@@ -124,7 +124,7 @@
 			<a href="https://mytview.com" target="_blank" rel="noopener" class="text-muted underline hover:text-base-content">mytview.com</a>
 			·
 			<a
-				href="https://github.com/fbartolini/mytview-server"
+				href="https://github.com/mytview/mytview-server"
 				target="_blank"
 				rel="noopener"
 				class="text-muted underline hover:text-base-content">source</a

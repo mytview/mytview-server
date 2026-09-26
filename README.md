@@ -44,6 +44,9 @@ Website: **https://mytview.com** · Privacy: **https://mytview.com/privacy/**
 
 ## Quick start (Docker)
 
+**Unraid:** install from Community Applications (search `MytView`); the template lives at
+https://github.com/mytview/unraid-templates. Everything else: the compose file below.
+
 ```yaml
 # docker-compose.yml
 services:
@@ -86,7 +89,7 @@ that, signup requires a single-use invite (from `/invite`) unless `ALLOW_SIGNUP=
 | --- | --- | --- |
 | `ALLOW_SIGNUP` | `invite` | `invite` (first account = owner, then invite-only), `all`, or `off`. |
 | `ALLOW_INVITES` | `owner` | Who may create invite links: `owner` or `all`. |
-| `ORIGIN` | — | Your external URL — set **only** behind a reverse proxy / TLS. |
+| `ORIGIN` | — | Your external URL — set **only** behind a reverse proxy / TLS. Leave it unset otherwise (from 0.4.10 a blank value counts as unset; older images refuse to start on a blank `ORIGIN`). |
 | `ADDRESS_HEADER` | — | Behind a proxy/CDN, the header carrying the real client IP (e.g. `x-forwarded-for`), so login rate limits see clients rather than the proxy. |
 | `TRANSCODE_HWACCEL` | `0` | `1` = Intel VAAPI hardware encode for live HLS (needs `/dev/dri` passthrough; amd64). Falls back to CPU automatically. |
 | `EMBEDDED_SUBS` | `1` | `off` stops the server reading subtitle tracks out of `.mkv`/`.mp4` containers (sidecar `.srt`/`.vtt` files still work). Extraction reads the whole container once per file, so on slow network storage turning it off is a reasonable choice. |
@@ -175,7 +178,7 @@ from the install date itself, with nothing to claim or register.
 - **Android phone / tablet / Google TV**: [on Google Play](https://play.google.com/store/apps/details?id=com.mytview.app)
   as an open beta, no invite needed (offline downloads are in testing and follow in the next release)
 - **Samsung TV**: free for everyone, lands on the Samsung store when Samsung's review completes —
-  [watch releases](https://github.com/fbartolini/mytview-server/releases) for the announcement
+  [watch releases](https://github.com/mytview/mytview-server/releases) for the announcement
 
 Third-party clients are welcome: the full client contract — auth and device pairing, the
 video/playback descriptors, watch-state rules, and the capabilities negotiation — is documented

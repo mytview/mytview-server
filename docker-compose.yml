@@ -11,11 +11,13 @@ services:
     environment:
       # Signup policy: invite (default — first account bootstraps the owner) | all | off.
       ALLOW_SIGNUP: ${ALLOW_SIGNUP:-invite}
-      # Only behind a reverse proxy / TLS: your real external URL.
-      ORIGIN: ${ORIGIN:-}
+      # Only behind a reverse proxy / TLS: your real external URL. No value here on purpose: the
+      # variable is taken from .env or the shell and OMITTED when unset (a blank ORIGIN would
+      # crash the server at boot on images before 0.4.10).
+      ORIGIN:
       # Behind a reverse proxy/CDN, the header carrying the REAL client address (e.g.
       # x-forwarded-for) so per-IP login rate limits see clients, not the proxy.
-      ADDRESS_HEADER: ${ADDRESS_HEADER:-}
+      ADDRESS_HEADER:
       XFF_DEPTH: ${XFF_DEPTH:-1}
       # 1 = Intel VAAPI hardware encode for live HLS (needs the /dev/dri passthrough below).
       TRANSCODE_HWACCEL: ${TRANSCODE_HWACCEL:-0}

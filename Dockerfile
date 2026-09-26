@@ -75,5 +75,10 @@ RUN mkdir -p /media /data /transcodes
 COPY --from=build /app/build ./build
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
+# scripts/: the entry point (start.mjs — drops EMPTY env vars, then `node build`; deployment UIs
+# and `${VAR:-}` compose defaults pass blanks as '', and adapter-node throws on ORIGIN='') and the
+# owner lockout escape hatch the docs promise (`docker compose exec mytview node scripts/set-password.mjs`,
+# which was NOT in the image until 2026-09-26).
+COPY --from=build /app/scripts ./scripts
 EXPOSE 8700
-CMD ["node", "build"]
+CMD ["node", "scripts/start.mjs"]
