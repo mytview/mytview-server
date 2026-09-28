@@ -1,0 +1,34 @@
+---
+title: MytView docs
+description: Install the server, get started in ten minutes, then configure everything.
+template: splash
+hero:
+  tagline: Your video library, on every screen. Install the server, get it working in ten minutes, then find every setting explained.
+  actions:
+    - text: Install
+      link: /docs/install/
+      icon: right-arrow
+    - text: Getting started
+      link: /docs/getting-started/
+      variant: minimal
+    - text: Configuration
+      link: /docs/configuration/principles/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Install" icon="rocket">
+    One container, three folders. Docker Compose, Unraid, Synology, TrueNAS, CasaOS, OpenMediaVault. [Start here](/docs/install/).
+  </Card>
+  <Card title="Getting started" icon="star">
+    The server is running. Now what? Libraries, the household, what is private, the apps. [Ten minutes](/docs/getting-started/).
+  </Card>
+  <Card title="Configuration" icon="setting">
+    Every behaviour and where it is set: [libraries](/docs/configuration/libraries/), [sharing](/docs/configuration/sharing/), [watching](/docs/configuration/watching/), [playback](/docs/configuration/playback/), [federation](/docs/configuration/federation/), [Plex](/docs/configuration/plex/).
+  </Card>
+  <Card title="Reference" icon="document">
+    [Every environment variable](/docs/reference/environment/) and [troubleshooting](/docs/reference/troubleshooting/) by symptom.
+  </Card>
+</CardGrid>

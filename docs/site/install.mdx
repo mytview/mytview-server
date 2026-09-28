@@ -1,0 +1,260 @@
+---
+title: Install
+description: One container, three folders. Docker Compose, Unraid, Synology, TrueNAS, CasaOS, OpenMediaVault and others.
+---
+
+import { Tabs, TabItem, Aside, Steps } from '@astrojs/starlight/components';
+
+Whatever you run it on, the server is the same image and the same three mounts: your video library
+(read-only), a data folder for accounts and watch state, and a scratch folder for live transcodes.
+Pick your platform; the sections after the platforms cover hardware transcoding, reverse proxies,
+updates and backups for all of them.
+
+## Before you start
+
+- **Where your videos are.** A folder on the same machine, or a share mounted on it. Any layout works
+  as long as the files carry their metadata: `.info.json` sidecars for creator channels, Kodi/Emby
+  `.nfo` files for TV series and movies. Mixed folders are fine; you tell MytView which subfolder is
+  which kind of library after the first sign-in.
+- **A machine with Docker.** Any 64-bit x86 or ARM box: NAS, mini-PC, home server, Raspberry Pi 4 or
+  later. About 300 MB of image, a few hundred MB of RAM at rest.
+- **Optional: an Intel iGPU** for hardware transcoding. Without one, transcodes use the CPU, and they
+  only happen when a device cannot play a file directly.
+
+## Your platform
+
+<Tabs syncKey="platform">
+<TabItem label="Docker Compose">
+
+The reference install. Every other platform is a wrapper around this file.
+
+```yaml title="docker-compose.yml"
+services:
+  mytview:
+    image: fbartolini/mytview:latest
+    container_name: mytview
+    restart: unless-stopped
+    ports:
+      - "8700:8700"
+    environment:
+      ALLOW_SIGNUP: invite          # the first account becomes the owner
+      ALLOW_INVITES: owner          # who may invite others: owner or all
+    volumes:
+      - /path/to/your/library:/media:ro          # your videos, read-only
+      - /path/to/mytview/data:/data              # accounts, watch state, index: BACK THIS UP
+      - /path/to/mytview/transcodes:/transcodes  # live-transcode scratch and artwork cache
+```
+
+<Steps>
+1. Save the file, replace the three host paths, then run `docker compose up -d`.
+2. Open `http://your-server:8700` and **sign up**. That first account is the owner.
+3. Continue with [Getting started](/docs/getting-started/): add your libraries, invite the household, connect the apps.
+</Steps>
+
+<Aside>Keep `/transcodes` outside your library and on fast storage if you have it. Segments exist only while someone is watching and are removed on idle.</Aside>
+
+</TabItem>
+<TabItem label="Unraid">
+
+MytView is in Community Applications.
+
+<Steps>
+1. **Apps** tab, search `MytView`, **Install**.
+2. Set the **Video library** path to the share that holds your videos (it is mounted read-only). Leave the data and transcode paths at their defaults under `appdata`.
+3. **Apply**, then open the WebUI from the container's icon and sign up.
+</Steps>
+
+### Intel iGPU
+
+Set `TRANSCODE_HWACCEL` to `1`, switch to **Advanced View**, and add to **Extra Parameters**, with no
+trailing space:
+
+```
+--device=/dev/dri:/dev/dri
+```
+
+<Aside type="caution">If transcodes fail while direct play works, check the share that holds the transcode folder: a **Minimum free space** larger than the pool can honour makes Unraid refuse every new file.</Aside>
+
+Not in Apps yet on your box? Load the template by hand from the Unraid terminal, then Docker → Add
+Container → pick MytView from the Template list:
+
+```bash
+wget -O /boot/config/plugins/dockerMan/templates-user/my-MytView.xml \
+  https://raw.githubusercontent.com/mytview/unraid-templates/main/templates/mytview.xml
+```
+
+</TabItem>
+<TabItem label="Synology">
+
+Container Manager (DSM 7.2) is available on Plus models and other models that list it in Package Center.
+
+<Steps>
+1. Open **Container Manager** → **Project** → **Create**.
+2. **Project name:** `mytview`. **Path:** a folder inside the `docker` shared folder, for example `/docker/mytview`. The data and transcode folders below are created inside it.
+3. **Source:** choose *Create docker-compose.yml* and paste this, changing only the library line to your videos' shared folder:
+   ```yaml
+   services:
+     mytview:
+       image: fbartolini/mytview:latest
+       container_name: mytview
+       restart: unless-stopped
+       ports:
+         - "8700:8700"
+       environment:
+         ALLOW_SIGNUP: invite
+         ALLOW_INVITES: owner
+       volumes:
+         - /volume1/video:/media:ro            # your videos (shared folder), read-only
+         - /volume1/docker/mytview/data:/data
+         - /volume1/docker/mytview/transcodes:/transcodes
+   ```
+4. **Next** through the web portal step (you can skip it), confirm, and let it start.
+5. Open `http://your-nas:8700` and sign up.
+</Steps>
+
+### Intel iGPU (Plus models with Intel CPUs)
+
+Add `TRANSCODE_HWACCEL: "1"` under `environment` and this block at the same level as `volumes`:
+
+```yaml
+    devices:
+      - /dev/dri:/dev/dri
+```
+
+<Aside>Container Manager reads only paths under shared folders. If your videos live on a second volume, the path starts with `/volume2/`.</Aside>
+
+</TabItem>
+<TabItem label="TrueNAS">
+
+TrueNAS 24.10 or later (Community Edition). Until MytView is in the TrueNAS catalog, install it as a
+custom app from the compose file; it is the same thing the catalog entry will do.
+
+<Steps>
+1. Create two datasets first, for example `apps/mytview-data` and `apps/mytview-transcodes`. The wizard cannot pause to create storage.
+2. **Apps** → **Discover Apps** → the **⋮** menu → **Install via YAML**.
+3. **Name:** `mytview`. **Custom Config:** paste this, with your dataset paths:
+   ```yaml
+   services:
+     mytview:
+       image: fbartolini/mytview:latest
+       container_name: mytview
+       restart: unless-stopped
+       ports:
+         - "8700:8700"
+       environment:
+         ALLOW_SIGNUP: invite
+         ALLOW_INVITES: owner
+       volumes:
+         - /mnt/tank/media/video:/media:ro          # your videos, read-only
+         - /mnt/tank/apps/mytview-data:/data
+         - /mnt/tank/apps/mytview-transcodes:/transcodes
+   ```
+4. **Save**. The app deploys and shows a portal button that opens `http://your-nas:8700`. Sign up.
+</Steps>
+
+### Intel iGPU
+
+Add `TRANSCODE_HWACCEL: "1"` under `environment` and:
+
+```yaml
+    devices:
+      - /dev/dri:/dev/dri
+```
+
+<Aside>The container runs as root by default, so no ACL change is needed. If you add a `user:` line to run it as the apps user (568), give that user write access on the data and transcode datasets through the dataset ACL first.</Aside>
+
+</TabItem>
+<TabItem label="CasaOS / ZimaOS">
+
+<Steps>
+1. **App Store** → **Custom Install** (top right) → **Import**.
+2. Paste the compose file below, then adjust the three host paths in the form CasaOS builds from it. On CasaOS your files usually live under `/DATA`.
+3. **Install**. The app tile opens `http://your-box:8700`. Sign up.
+</Steps>
+
+```yaml
+services:
+  mytview:
+    image: fbartolini/mytview:latest
+    container_name: mytview
+    restart: unless-stopped
+    ports:
+      - "8700:8700"
+    environment:
+      ALLOW_SIGNUP: invite
+      ALLOW_INVITES: owner
+    volumes:
+      - /DATA/Media/Videos:/media:ro
+      - /DATA/AppData/mytview/data:/data
+      - /DATA/AppData/mytview/transcodes:/transcodes
+```
+
+For an Intel iGPU, add `TRANSCODE_HWACCEL: "1"` and a `devices` entry for `/dev/dri:/dev/dri` before
+importing; the form shows both.
+
+</TabItem>
+<TabItem label="OpenMediaVault & others">
+
+Any tool that takes a compose file works with the reference file from the Docker Compose tab, unchanged.
+
+- **OpenMediaVault:** install the *openmediavault-compose* plugin from OMV-Extras, then **Services → Compose → Files → Add**, paste, set the paths, **Up**.
+- **Portainer:** **Stacks → Add stack**, paste, deploy.
+- **Dockge:** **Compose**, paste, deploy.
+- **Plain Docker**, no compose:
+
+```bash
+docker run -d --name mytview --restart unless-stopped -p 8700:8700 \
+  -e ALLOW_SIGNUP=invite -e ALLOW_INVITES=owner \
+  -v /path/to/your/library:/media:ro \
+  -v /path/to/mytview/data:/data \
+  -v /path/to/mytview/transcodes:/transcodes \
+  fbartolini/mytview:latest
+```
+
+</TabItem>
+</Tabs>
+
+## Hardware transcoding
+
+MytView plays files directly whenever the device can decode them. Only when it cannot does the server
+transcode, live, into a stream that starts in seconds, at the source resolution. With an Intel iGPU
+the encode runs on the GPU; otherwise it runs on the CPU, where one or two 1080p streams are fine on a
+modern NAS processor and the server steps down to 1080p or 720p on its own if the host cannot keep up.
+
+- Turn it on with `TRANSCODE_HWACCEL=1` and pass `/dev/dri` into the container, as shown per platform
+  above. It falls back to the CPU by itself if the GPU path fails.
+- Check the GPU from the host: `docker exec mytview vainfo` should list an *iHD* driver. The image
+  carries its own driver stack, so the host needs only the kernel device.
+- AMD iGPUs work through the same VAAPI path. NVIDIA is not supported.
+- On ARM (Raspberry Pi, ARM NAS) transcoding is CPU-only; direct play is unaffected.
+
+## Behind a reverse proxy
+
+On your LAN nothing needs to be set. If you publish MytView behind Caddy, nginx, Traefik or Cloudflare,
+add two variables:
+
+| Variable | Value |
+| --- | --- |
+| `ORIGIN` | Your public URL, for example `https://videos.example.com`. Leave it out entirely on the LAN; do not set it to an empty value on images older than 0.4.10. |
+| `ADDRESS_HEADER` | `x-forwarded-for` (Cloudflare: `cf-connecting-ip`), so login rate limits apply per client rather than to the proxy. |
+
+Allow at least 60 seconds of read timeout on `/hls/`; the first segment of a cold transcode can take a
+moment. The full set of proxy variables is in [Behind a reverse proxy](/docs/configuration/reverse-proxy/).
+
+## Updating
+
+Pull the new image and recreate the container: on Unraid, the Docker tab's update button; on Synology,
+the project's *Build* then *Start*; on TrueNAS, the app's update; with compose,
+`docker compose pull && docker compose up -d`. Nothing else is needed. The index and your accounts
+carry over, and the library is never touched.
+
+## What to back up
+
+Only the `/data` folder. It holds the accounts, sessions, watch progress and the library index. The
+index rebuilds itself from disk; the rest does not. The transcode folder is disposable, and your
+library is yours already.
+
+<Aside type="tip" title="Installed and signed up?">
+The server is empty until you tell it where your libraries are. [Getting started](/docs/getting-started/)
+walks through that in ten minutes: libraries, the household accounts, what is private, the apps.
+</Aside>

@@ -115,6 +115,28 @@ docker compose -f docker-compose.yml -f docker-compose.hwaccel.yml up -d
 
 (Equivalent by hand: `TRANSCODE_HWACCEL: "1"` plus `devices: [/dev/dri:/dev/dri]`.)
 
+### Reverse proxies and Cloudflare
+
+MytView is plain HTTP: no WebSockets, no server-sent events, so any reverse proxy works with
+its defaults, plus two things worth knowing:
+
+- **Read timeout for `/hls/`**: at least 60 s. A download's playlist can wait 20 s on a file's
+  one-time keyframe scan, and a segment up to 45 s on a slow encode; a proxy that gives up sooner
+  turns those into 502/504s the apps read as "server busy".
+- **Cloudflare**: a proxied (orange-cloud) hostname works; the demo server runs that way. What
+  breaks the apps is bot protection that challenges non-browser clients, which answers **403** to
+  the app while Safari and Chrome pass: **Security → Bots → Bot Fight Mode** (the Free-plan one
+  cannot be exempted per hostname or path), a WAF managed or custom rule with a challenge action,
+  or Security Level "I'm Under Attack". Turn the one that is on off for the zone, or on a paid plan
+  tune Super Bot Fight Mode to allow that hostname; everything else about the proxy can stay.
+- **Nginx Proxy Manager**: an Access List other than "Publicly Accessible" answers 403 to the apps
+  (they send no basic auth and may be on cellular). "Block Common Exploits" and "Websockets
+  Support" are harmless either way.
+
+A quick check from any machine: `curl -i -X POST https://your-host/api/v1/auth/login -H
+'Content-Type: application/json' -d '{"username":"x","password":"y"}'` should answer **401**
+(bad credentials). A 403 there is the proxy layer, not MytView.
+
 ## Library layout
 
 Two library formats, configured by the owner in the UI (**Libraries** in the avatar menu) —
@@ -178,7 +200,9 @@ from the install date itself, with nothing to claim or register.
 - **Android phone / tablet / Google TV**: [on Google Play](https://play.google.com/store/apps/details?id=com.mytview.app)
   as an open beta, no invite needed (offline downloads are in testing and follow in the next release)
 - **Samsung TV**: free for everyone, lands on the Samsung store when Samsung's review completes —
-  [watch releases](https://github.com/mytview/mytview-server/releases) for the announcement
+  [watch releases](https://github.com/mytview/mytview-server/releases) for the announcement. Until
+  then, as a temporary workaround, the app can be [built from source and sideloaded](https://github.com/mytview/mytview-tizen)
+  onto your own TV with Samsung's free developer tools.
 
 Third-party clients are welcome: the full client contract — auth and device pairing, the
 video/playback descriptors, watch-state rules, and the capabilities negotiation — is documented
