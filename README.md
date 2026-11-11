@@ -51,7 +51,7 @@ https://github.com/mytview/unraid-templates. Everything else: the compose file b
 # docker-compose.yml
 services:
   mytview:
-    image: fbartolini/mytview:latest
+    image: ghcr.io/mytview/mytview:latest
     container_name: mytview
     restart: unless-stopped
     ports:

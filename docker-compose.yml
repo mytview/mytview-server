@@ -3,7 +3,7 @@
 
 services:
   mytview:
-    image: fbartolini/mytview:latest
+    image: ghcr.io/mytview/mytview:latest
     container_name: mytview
     restart: unless-stopped
     ports:

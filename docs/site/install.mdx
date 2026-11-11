@@ -31,7 +31,7 @@ The reference install. Every other platform is a wrapper around this file.
 ```yaml title="docker-compose.yml"
 services:
   mytview:
-    image: fbartolini/mytview:latest
+    image: ghcr.io/mytview/mytview:latest
     container_name: mytview
     restart: unless-stopped
     ports:
@@ -95,7 +95,7 @@ Container Manager (DSM 7.2) is available on Plus models and other models that li
    ```yaml
    services:
      mytview:
-       image: fbartolini/mytview:latest
+       image: ghcr.io/mytview/mytview:latest
        container_name: mytview
        restart: unless-stopped
        ports:
@@ -136,7 +136,7 @@ custom app from the compose file; it is the same thing the catalog entry will do
    ```yaml
    services:
      mytview:
-       image: fbartolini/mytview:latest
+       image: ghcr.io/mytview/mytview:latest
        container_name: mytview
        restart: unless-stopped
        ports:
@@ -175,7 +175,7 @@ Add `TRANSCODE_HWACCEL: "1"` under `environment` and:
 ```yaml
 services:
   mytview:
-    image: fbartolini/mytview:latest
+    image: ghcr.io/mytview/mytview:latest
     container_name: mytview
     restart: unless-stopped
     ports:
@@ -208,7 +208,7 @@ docker run -d --name mytview --restart unless-stopped -p 8700:8700 \
   -v /path/to/your/library:/media:ro \
   -v /path/to/mytview/data:/data \
   -v /path/to/mytview/transcodes:/transcodes \
-  fbartolini/mytview:latest
+  ghcr.io/mytview/mytview:latest
 ```
 
 </TabItem>
