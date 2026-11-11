@@ -189,9 +189,9 @@ page; each user links their own Plex account there via plex.tv/link.
 The web UI ships with the server. The native apps (iPhone/iPad/Apple TV, Google TV,
 Samsung TV) are separate, closed-source products by the same author — the Samsung app is free.
 
-They are free today and become a small one-time purchase (no subscription) from 1 November 2026.
-**Install an app before 1 November 2026 and it stays free forever** — a founder licence, detected
-from the install date itself, with nothing to claim or register.
+They start with a 14-day free trial, then a small one-time purchase per store (no subscription).
+**An app installed before 1 November 2026 stays free forever**: a founder licence, detected from
+the install date itself, with nothing to claim or register.
 
 **Get the apps:**
 

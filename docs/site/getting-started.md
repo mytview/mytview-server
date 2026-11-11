@@ -82,8 +82,8 @@ remote-control navigation, background audio and offline downloads.
 - **Away from home:** the apps need to reach the server. A VPN or tailnet is the simplest way; a public
   address behind a reverse proxy with TLS is the other ([reverse proxy setup](/docs/configuration/reverse-proxy/)).
 
-Apps installed before 1 November 2026 stay free forever; after that they are a 14-day trial and a
-one-time purchase. The web player and the Samsung TV app are always free (the Samsung app is still
+The apps start with a 14-day trial, then a one-time purchase per store; an app installed before
+1 November 2026 stays free forever. The web player and the Samsung TV app are always free (the Samsung app is still
 in Samsung's review; owners who don't want to wait can [build and sideload it](https://github.com/mytview/mytview-tizen)).
 Where to get each one: [The apps](/docs/configuration/apps/).
 

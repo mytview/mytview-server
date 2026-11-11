@@ -18,11 +18,11 @@ lacks simply does not show.
   Following a show keeps the next unwatched episodes on the device.
 - **Settings** in the apps hold the per-person autoplay and still-watching preferences, which the web
   player also honours.
-- **Pricing:** an app installed before 1 November 2026 stays free forever, detected from the install
-  date itself, nothing to claim. After that date a first install gets a 14-day trial and then a
-  one-time unlock per store (one purchase covers iPhone, iPad and Apple TV; one covers Android phones,
-  tablets and Google TV). Only starting playback is gated, never browsing, pairing or settings, and if
-  the store cannot be reached the app lets you watch. The web player and the Samsung app never gate.
+- **Pricing:** a first install gets a 14-day trial and then a one-time unlock per store (one purchase
+  covers iPhone, iPad and Apple TV; one covers Android phones, tablets and Google TV). An app first
+  installed before 1 November 2026 stays free forever, detected from the install date itself, nothing
+  to claim. Only starting playback is gated, never browsing, pairing or settings, and if the store
+  cannot be reached the app lets you watch. The web player and the Samsung app never gate.
 
 Third-party clients are welcome: the client contract is documented in the
 [server repository](https://github.com/mytview/mytview-server/blob/main/docs/api.md).
