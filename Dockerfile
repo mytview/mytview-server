@@ -23,6 +23,11 @@ RUN npm run build \
 # its own VA driver, so this is independent of whatever the PVE host has installed.
 FROM node:24.18.1-trixie-slim AS runtime
 WORKDIR /app
+# What GitHub's container registry reads to link the published package to its repository (the
+# package page then shows the README and sits under the repo). Plain metadata everywhere else.
+LABEL org.opencontainers.image.source="https://github.com/mytview/mytview-server" \
+      org.opencontainers.image.description="MytView: a private, read-only player for a video library you host yourself" \
+      org.opencontainers.image.licenses="GPL-3.0-only"
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=8700

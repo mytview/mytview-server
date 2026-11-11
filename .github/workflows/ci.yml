@@ -22,5 +22,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Build only — publishing to Docker Hub stays a manual release step.
+      # Build only: publishing an image stays a deliberate release step (a v* tag, release.yml).
       - run: docker build -t mytview-server:ci .

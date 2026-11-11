@@ -2,13 +2,15 @@ name: Release image
 
 # Deliberate releases only: push a version tag (v0.4.0) and this builds the multi-arch
 # image ONCE and publishes it to two registries:
-#   Docker Hub  fbartolini/mytview:<version> + :latest   (the address every doc and template uses)
-#   GHCR        ghcr.io/mytview/mytview:<version> + :latest  (mirror: TrueNAS' catalog prefers ghcr,
-#                and it sidesteps Docker Hub pull limits for NAS users; same digest as Docker Hub)
-# Requires repo secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (an access token, not the
-# account password). GHCR uses the workflow's own GITHUB_TOKEN (packages: write below); the
-# package lands under the org that owns this repo and must be set to PUBLIC once, in the
-# package's settings on GitHub, after the first push.
+#   GHCR        ghcr.io/mytview/mytview:<version> + :latest  (THE address: every doc, compose
+#                example and new listing points here, so the image lives under the project's own
+#                GitHub organisation)
+#   Docker Hub  fbartolini/mytview:<version> + :latest   (a mirror, same digest, kept so installs
+#                made before 2026-11 keep receiving updates; no longer named in any documentation)
+# GHCR uses the workflow's own GITHUB_TOKEN (packages: write below); the package lands under the
+# org that owns this repo and must be set to PUBLIC once, in the package's settings on GitHub,
+# after the first push. Docker Hub requires repo secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN (an
+# access token, not the account password).
 on:
   push:
     tags: ['v*']
@@ -41,7 +43,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            fbartolini/mytview:latest
-            fbartolini/mytview:${{ steps.v.outputs.version }}
             ghcr.io/mytview/mytview:latest
             ghcr.io/mytview/mytview:${{ steps.v.outputs.version }}
+            fbartolini/mytview:latest
+            fbartolini/mytview:${{ steps.v.outputs.version }}
