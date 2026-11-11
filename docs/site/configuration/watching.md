@@ -1,6 +1,6 @@
 ---
 title: Watching
-description: What counts as watched, what is hidden where, autoplay, and how browsing, search, tags and related work.
+description: What counts as watched, what is hidden where, autoplay, how browsing, search, tags and related work, and the web player's theater mode and previews.
 sidebar: { order: 5 }
 ---
 
@@ -20,7 +20,7 @@ apps follow the same rules.
 | Recent feed, search, tag pages | watched videos hidden | *show watched* adds them back |
 | Channels and shows grid | fully watched channels and shows dropped; empty channels stay | *show watched*, with a "N watched hidden" count |
 | Channel page | watched videos hidden | *show watched* |
-| Show page | every episode listed, watched ones marked; the server names the next unwatched episode in order | always visible |
+| Show page | every episode listed under a heading per season, watched ones marked; the server names the next unwatched episode in order | always visible |
 | Movies wall | watched movies hidden | *show watched* |
 
 A finished show leaves the grid until a new episode arrives, the same way a watched video leaves the
@@ -52,3 +52,18 @@ but has no control of its own.
 - **Related** shows eight items: the rest of a show in order; for movies, the same library ranked by
   shared genres, cast and collection then year; for channel videos, rare-tag overlap with the same
   channel down-weighted, watched ones excluded, topped up with recent unwatched.
+
+## On the web
+
+- **Related and Recent.** The list beside the player has two tabs. Related is the default; Recent is
+  your Recent feed without the video that is playing. Each item says how long ago it aired, or for a
+  movie how long ago it was added. Autoplay always follows Related, whichever tab is open.
+- **Theater.** The *theater* button under the player widens it to the full width of the browser
+  window. The page still scrolls, with the title, description and the list underneath. The choice is
+  remembered in that browser and carries from one video to the next; Esc or the button turns it off.
+- **Previews.** Rest the pointer on a video card for a moment and it plays in place, muted. If the
+  video has subtitles, in a file next to it or inside the video file, the captions show, in the
+  language you last picked in the player. Captions inside the video file cover the first minute of a
+  preview. A preview never counts as watching and never moves your resume point. Turn it off under
+  **Account → Previews**; the setting is per browser, since it needs a mouse or trackpad.
+- **Which episode.** The video page shows the season and episode beside the show's name.

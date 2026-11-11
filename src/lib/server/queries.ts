@@ -1,7 +1,8 @@
 /** Read queries over the SQLite index. Shared by API endpoints and page loads. */
 import { db } from './db';
 import { visibilityClause, canSeeChannel, notHiddenClause } from './visibility';
-import type { ChannelSummary, ChannelDetail, VideoSummary, VideoDetail } from '$lib/types';
+import { parseSupportLinks } from './supportlinks';
+import type { ChannelSummary, ChannelDetail, VideoSummary, VideoDetail, SupportLink } from '$lib/types';
 
 type VideoRow = Omit<VideoSummary, 'watched'> & { watched: number; position: number };
 const toSummary = (r: VideoRow): VideoSummary => ({ ...r, watched: !!r.watched });
@@ -160,10 +161,12 @@ export function getChannel(
 	showWatched = false,
 	sort: MovieSort = 'title'
 ): ChannelDetail | null {
-	const raw = db().prepare('SELECT * FROM channels WHERE id = ?').get(id) as
-		| (Omit<ChannelSummary, 'genres'> & { genres: string | null })
+	const row = db().prepare('SELECT * FROM channels WHERE id = ?').get(id) as
+		| (Omit<ChannelSummary, 'genres'> & { genres: string | null; support_links: string | null })
 		| undefined;
-	if (!raw) return null;
+	if (!row) return null;
+	// The raw JSON column must not ride along into the API response — it's parsed into `supportLinks`.
+	const { support_links, ...raw } = row;
 	if (!canSeeChannel({ id: userId }, id)) return null; // private + not granted → treat as absent
 	const fallback = db()
 		.prepare(
@@ -171,7 +174,12 @@ export function getChannel(
 			 ORDER BY timestamp DESC NULLS LAST, upload_date DESC LIMIT 1`
 		)
 		.get(id) as { id: string } | undefined;
-	const channel: ChannelSummary = { ...raw, genres: parseGenres(raw.genres), fallback_thumb_id: fallback?.id ?? null };
+	const channel: ChannelSummary = {
+		...raw,
+		genres: parseGenres(raw.genres),
+		supportLinks: parseSupportLinks(support_links),
+		fallback_thumb_id: fallback?.id ?? null
+	};
 	// Movies sort user-chosen (title/year/added — the poster-wall knobs); channels/series keep the one
 	// shared order (episodes by season/episode, channel videos newest-first).
 	const orderBy =
@@ -533,6 +541,15 @@ function tagRelated(videoId: string, userId: number, limit: number): VideoSummar
 			limit
 		}) as VideoRow[];
 	return rows.map(toSummary);
+}
+
+/** The channel's promoted creator support links (supportlinks.ts) — the video page shows them under
+ *  the channel line. Empty when none were promoted. */
+export function channelSupportLinks(channelId: string): SupportLink[] {
+	const row = db().prepare('SELECT support_links FROM channels WHERE id = ?').get(channelId) as
+		| { support_links: string | null }
+		| undefined;
+	return parseSupportLinks(row?.support_links);
 }
 
 export function getVideo(id: string): VideoDetail | null {

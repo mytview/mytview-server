@@ -1,13 +1,15 @@
 <script lang="ts">
 	import VideoCard from '$lib/components/VideoCard.svelte';
 	import MovieCard from '$lib/components/MovieCard.svelte';
+	import SupportLinks from '$lib/components/SupportLinks.svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { watchUpdates } from '$lib/watchStore';
-	import { fmtViews } from '$lib/format';
+	import { fmtViews, fmtSeason } from '$lib/format';
+	import type { VideoSummary } from '$lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -26,6 +28,8 @@
 	// Initial value = the library's SAVED filter (contract §Browse persistence); the effect
 	// re-applies it when navigation lands on a different wall with this component reused.
 	let genre = $state<string | null>(null);
+	// The channel's own description (About text), collapsed like the video description.
+	let aboutOpen = $state(false);
 	$effect(() => {
 		genre = data.savedGenre ?? null;
 	});
@@ -70,6 +74,22 @@
 	const shown = $derived(
 		effectiveGenre ? unwatchedLive.filter((v) => v.genres?.includes(effectiveGenre)) : unwatchedLive
 	);
+	// A show's episodes, broken up by season. The server already delivers them in running order
+	// (season, then episode), so this only cuts that order where the season number changes: it never
+	// re-sorts. Headings appear when at least one episode carries a season; a show whose files have
+	// no season numbers at all stays one plain grid rather than gaining a lone "Other episodes" label.
+	const seasons = $derived.by(() => {
+		const out: { season: number | null; videos: VideoSummary[] }[] = [];
+		if (c.kind !== 'series') return out;
+		for (const v of shown) {
+			const season = v.season_number ?? null;
+			const last = out[out.length - 1];
+			if (last && last.season === season) last.videos.push(v);
+			else out.push({ season, videos: [v] });
+		}
+		return out.some((g) => g.season != null) ? out : [];
+	});
+
 	// "Everything watched" in the default (unwatched-only) view — keyed off `shown` so it's right for
 	// channels (load returns only unwatched), series (load returns ALL episodes → filtered here), and
 	// the movies wall (load returns only unwatched; suppressed while a genre chip narrows the list).
@@ -160,9 +180,35 @@
 					<a href={c.url} target="_blank" rel="noopener" class="text-primary">source ↗</a>
 				{/if}
 			</div>
+			{#if c.supportLinks?.length}
+				<div class="mt-2"><SupportLinks links={c.supportLinks} /></div>
+			{/if}
 		</div>
 	</div>
 </div>
+
+{#if c.description}
+	<!-- The channel's OWN description (channels.description — a channel metafile or the tvshow.nfo
+	     <plot>, see the indexer). Plain text, collapsed to a few lines like the video description; never
+	     linkified — the curated, host-allowlisted links are the support chips above (supportlinks.ts). -->
+	<div class="-mt-2 mb-6 max-w-[78ch]">
+		<div
+			class="leading-relaxed whitespace-pre-wrap text-[14px] text-neutral-300 {aboutOpen
+				? ''
+				: 'line-clamp-4'}"
+		>
+			{c.description}
+		</div>
+		{#if c.description.length > 280}
+			<button
+				onclick={() => (aboutOpen = !aboutOpen)}
+				class="mt-1.5 font-mono text-xs text-primary hover:underline"
+			>
+				{aboutOpen ? 'Show less' : 'Show more'}
+			</button>
+		{/if}
+	</div>
+{/if}
 {/if}
 
 {#if !isMovies}
@@ -225,6 +271,28 @@
 			<MovieCard video={v} />
 		{/each}
 	</div>
+{:else if seasons.length}
+	<!-- Series: one quiet heading per season so it is clear where each starts and ends. The count is
+	     of what is on screen (watched episodes hidden by the toggle are not counted). -->
+	{#each seasons as s (s.season ?? 'none')}
+		<section class="mb-8 last:mb-0">
+			<h2
+				class="mb-3 flex items-baseline gap-2 border-b border-line-soft pb-2 font-mono text-[11px] tracking-widest uppercase"
+			>
+				<span class="font-semibold text-muted">{fmtSeason(s.season)}</span>
+				<span class="text-faint"
+					>{s.videos.length} {s.videos.length === 1 ? 'episode' : 'episodes'}</span
+				>
+			</h2>
+			<div class="card-grid">
+				{#each s.videos as v (v.id)}
+					<div out:fade={{ duration: 180 }} animate:flip={{ duration: 180 }}>
+						<VideoCard video={v} showChannel={false} />
+					</div>
+				{/each}
+			</div>
+		</section>
+	{/each}
 {:else}
 	<div class="card-grid">
 		{#each shown as v (v.id)}

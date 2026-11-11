@@ -32,6 +32,7 @@ import { applyNewChannelDefault } from './visibility';
 import { warmImage } from './imagecache';
 import { resolveInMediaRoot } from './files';
 import { findSubtitles } from './subtitles';
+import { refreshSupportLinks } from './supportlinks';
 
 const MEDIA_EXTS = ['.mp4', '.mkv', '.webm', '.m4v'];
 const THUMB_EXTS = ['.jpg', '.jpeg', '.png', '.webp'];
@@ -597,6 +598,7 @@ interface ScanCtx {
 	upsertBatch: (rows: Row[]) => void;
 	stubChannel: Database.Statement;
 	enrichChannel: Database.Statement;
+	setChannelDescription: Database.Statement; // channel-level description, set whenever one is found (not only on enrich)
 	wasSeenBefore: Database.Statement; // durable state.channels_seen probe — "is this channel new?"
 	markSeen: Database.Statement; // record a channel id in state.channels_seen (INSERT OR IGNORE)
 	markVideoSeen: Database.Statement; // durable dateAdded: INSERT OR IGNORE into state.videos_seen (seed = file mtime)
@@ -675,6 +677,12 @@ export async function scan(full = false): Promise<ScanStats> {
 		   fanart_path=excluded.fanart_path,
 		   genres=COALESCE(excluded.genres, channels.genres)`
 	);
+	// The channel's OWN description (a channel metafile or a tvshow.nfo <plot>): written whenever the
+	// walk finds one — independent of enrich (which only runs when a video was parsed), so a metafile
+	// that appears later still lands on the next scan.
+	const setChannelDescription = database.prepare(
+		'UPDATE channels SET description = @d WHERE id = @id AND (description IS NULL OR description != @d)'
+	);
 
 	// LOCAL rows only (peer_id IS NULL) — mirrored federation rows are sync-owned: they must never
 	// feed the incremental-skip map, the prune, or the safety valve (fedsync.ts prunes per-peer).
@@ -724,6 +732,7 @@ export async function scan(full = false): Promise<ScanStats> {
 		upsertBatch,
 		stubChannel,
 		enrichChannel,
+		setChannelDescription,
 		wasSeenBefore,
 		markSeen,
 		markVideoSeen,
@@ -819,6 +828,9 @@ export async function scan(full = false): Promise<ScanStats> {
 		)
 		.run();
 	const pruned = deadVideos.length;
+	// Creator support links (supportlinks.ts): re-aggregated over the WHOLE channel after every scan —
+	// the recurrence threshold is a channel-level fact an incremental scan can't maintain per video.
+	await refreshSupportLinks(database);
 	await syncSubtitles(database);
 	gcShares(); // drop expired share links
 
@@ -948,11 +960,42 @@ async function indexChannels(lib: Library, ctx: ScanCtx, excluded: Set<string>):
 }
 
 /**
+ * Channel METAFILES: yt-dlp-style archivers can write the channel's own metadata next to the videos
+ * (a playlist-level `.info.json`, `_type: 'playlist'`, with NO media sibling — its `description` is
+ * the channel's About text). Parsed only when its mtime moved (it can carry an `entries` array the
+ * size of the whole channel), cached for the process lifetime; a restart costs one re-read per
+ * channel. Oversized files are ignored rather than parsed on the event loop.
+ */
+const channelMetaCache = new Map<string, { mtime: number; description: string | null }>();
+const CHANNEL_META_MAX_BYTES = 32 * 1024 * 1024;
+async function channelMetaDescription(infoPath: string, mtime: number): Promise<string | null> {
+	const key = rel(infoPath);
+	const hit = channelMetaCache.get(key);
+	if (hit && hit.mtime === mtime) return hit.description;
+	let description: string | null = null;
+	try {
+		if ((await fsp.stat(infoPath)).size <= CHANNEL_META_MAX_BYTES) {
+			const info = JSON.parse(await fsp.readFile(infoPath, 'utf-8')) as Record<string, unknown> | null;
+			// Only playlist/channel-level metadata qualifies — a per-video sidecar is never `_type: 'playlist'`.
+			if (info && info._type === 'playlist' && typeof info.description === 'string' && info.description.trim()) {
+				description = info.description.trim();
+			}
+		}
+	} catch {
+		/* unreadable or not JSON — not a metafile */
+	}
+	channelMetaCache.set(key, { mtime, description });
+	return description;
+}
+
+/**
  * One creator-channel folder (`.info.json` sidecars): the channels library calls this per top-level
  * dir, and a SERIES library calls it for a show whose episodes carry `.info.json` sidecars (the layout
  * ytdl-sub-style tools write: yt-dlp's sidecar next to each file plus, for some players, an `.nfo`).
  * Same row builder and ids either way, so a folder moved between library types keeps its watch state.
  * `preferredName` (a `tvshow.nfo` title) wins over the sidecars' channel name; `genres` ride on the tile.
+ * The channel's own DESCRIPTION comes from a channel metafile (preferred) or the root `tvshow.nfo`'s
+ * `<plot>` — it feeds the creator support links (supportlinks.ts) without the recurrence threshold.
  */
 async function indexChannelDir(
 	lib: Library,
@@ -973,6 +1016,7 @@ async function indexChannelDir(
 	let foundAny = false;
 	let enriched = false;
 	let batch: Row[] = [];
+	let metaDescription: string | null = null;
 
 	// Genuinely-new channels get the library's default (lib.newPrivate). "New" is judged against the
 	// DURABLE channels_seen record — not this disposable index — so existing channels keep their
@@ -1021,6 +1065,9 @@ async function indexChannelDir(
 						followers = Math.trunc(info.channel_follower_count);
 					}
 				}
+			} else if (!metaDescription) {
+				// No media sibling: a channel metafile, if it says so (else just an orphan sidecar).
+				metaDescription = await channelMetaDescription(infoPath, mtime);
 			}
 		}
 		if (++ctx.counters.processed % BATCH === 0) {
@@ -1040,6 +1087,20 @@ async function indexChannelDir(
 				id: cid, name: preferredName ?? name, kind: 'channel', lib: lib.id, yt: ytId, url, fc: followers, poster: posterRel, fanart: fanartRel, genres
 			});
 		}
+		// Channel description: the metafile's About text, else the root tvshow.nfo's <plot> (Kodi/Jellyfin
+		// presets write that file in creator folders too; a plot is only there if the archiver was told to).
+		let description = metaDescription;
+		if (!description) {
+			const showNfo = path.join(channelDir, 'tvshow.nfo');
+			if (await isFile(showNfo)) {
+				try {
+					description = xmlTag(await fsp.readFile(showNfo, 'utf-8'), 'plot')?.trim() || null;
+				} catch {
+					/* unreadable: no description */
+				}
+			}
+		}
+		if (description) ctx.setChannelDescription.run({ id: cid, d: description });
 	}
 }
 

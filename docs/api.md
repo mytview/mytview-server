@@ -224,6 +224,18 @@ count of not-watched items → render as an unread-style **badge**. **`library_i
 re-assigns or prunes them; libraries are explicit-only now). Optional **`?library=<id>`** scopes the list to one library (mirrors the
 web nav tabs).
 
+**`supportLinks`** (on `channels/[id]` only, since 2026-10-27): `[{ platform, label, url }]` — the creator's own
+tip-jar/membership pages (Patreon, Ko-fi, Buy Me a Coffee, PayPal, Liberapay, GitHub Sponsors, Open Collective,
+Tipeee, SubscribeStar), SERVER-INFERRED from their video descriptions and promoted only once a link recurs across
+the channel's videos; `platform` is a stable key (`patreon`, `kofi`, `buymeacoffee`, `paypal`, `liberapay`,
+`github-sponsors`, `opencollective`, `tipeee`, `subscribestar`), `label` the display name, `url` always https.
+Two sources: the videos' descriptions (recurrence threshold) and the channel's OWN description when the library
+carries one (a channel-level metafile, `_type: playlist`, or the root `tvshow.nfo` `<plot>` — also exposed as
+**`description`** on `channels/[id]`, null otherwise), whose links need no recurrence. Only an allowlisted HOST
+ever matches: a creator's short link on their own domain (`undecided.link/patreon`) is deliberately NOT
+recognised (owner 2026-10-27, partial-URL matching is too brittle). One entry per platform. Empty when none. **Presentation is web-only for now (matrix §Sharing)** — native clients ignore the field; if a
+client ever renders it, it is a plain outbound link with no in-app purchase flow.
+
 **DECISION — the grid hides fully-watched channels/series by default (added 2026-08-12,
 server-side).** A channel/series in which this user has watched *every* item is **dropped from the
 default list** — a finished show leaves the shows grid until a new episode arrives — the same

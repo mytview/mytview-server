@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS channels (
     poster_path    TEXT,
     fanart_path    TEXT,
     video_count    INTEGER NOT NULL DEFAULT 0,
-    genres         TEXT                               -- JSON array: series (tvshow.nfo) + the movies channel (aggregate); NULL for ytdl channels
+    genres         TEXT,                              -- JSON array: series (tvshow.nfo) + the movies channel (aggregate); NULL for ytdl channels
+    support_links  TEXT,                              -- JSON [{platform,label,url}]: creator tip-jar/membership pages inferred from descriptions (supportlinks.ts); NULL = none promoted
+    description    TEXT                               -- the channel's OWN description when the library carries one (a channel-level metafile or tvshow.nfo <plot>); NULL otherwise
 );
 
 CREATE TABLE IF NOT EXISTS videos (
@@ -115,6 +117,8 @@ export function db(): Database.Database {
 	ensureColumn(d, 'videos', 'year', 'INTEGER');
 	ensureColumn(d, 'videos', 'poster_path', 'TEXT');
 	ensureColumn(d, 'channels', 'genres', 'TEXT');
+	ensureColumn(d, 'channels', 'support_links', 'TEXT'); // filled by the first scan after upgrade (supportlinks.ts)
+	ensureColumn(d, 'channels', 'description', 'TEXT'); // channel-level description (indexer channelMetaDescription / tvshow.nfo plot)
 	// Federation: NULL = local (scan-owned) row; a 12-hex peer prefix = mirrored from that peer
 	// (sync-owned — the scan's prune/existing/hasRows all filter peer_id IS NULL, and fedsync.ts
 	// prunes per-prefix). See docs/federation-design.md §7.

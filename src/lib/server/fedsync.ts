@@ -27,6 +27,7 @@ import { fedCatalog, fedVideos, FedError } from './fedclient';
 import type { FedCatalogChannel, FedVideoExport } from './fedserve';
 import { getLibrary, type LibraryConfig } from './libraries';
 import { applyNewChannelDefault } from './visibility';
+import { refreshSupportLinks } from './supportlinks';
 
 const tick = (): Promise<void> => new Promise((r) => setImmediate(r));
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -508,6 +509,9 @@ async function syncLink(link: FedLink, stats: FedSyncStats): Promise<boolean> {
 
 	stats.upserted += wrote;
 	stats.pruned += deadVideos.length;
+	// Mirrored rows carry their descriptions, so a mirrored channel gets its creator's support links
+	// too (supportlinks.ts) — recomputed only when this sync actually changed rows.
+	if (wrote > 0 || deadVideos.length > 0) await refreshSupportLinks(database);
 	touchLinkSeen(link.id);
 	setLinkSyncError(
 		link.id,

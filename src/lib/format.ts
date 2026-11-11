@@ -42,6 +42,38 @@ export function fmtDate(ts?: number | null, uploadDate?: string | null): string 
 	return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Human-friendly recency for the video page's rails: "5 mins ago", "3 hours ago", "1 day ago",
+ * "2 weeks ago"… A real `timestamp` resolves down to minutes; a day-only `upload_date` cannot, so
+ * anything inside the last day reads "today". Empty when the item carries no date at all, and a
+ * timestamp slightly in the future (clock skew between the library host and this one) is "just now".
+ * `now` is injectable for tests.
+ */
+export function fmtAgo(ts?: number | null, uploadDate?: string | null, now = Date.now()): string {
+	const d = dateFrom(ts, uploadDate);
+	if (!d || isNaN(+d)) return '';
+	const secs = Math.floor((now - +d) / 1000);
+	const ago = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'} ago`;
+	const days = Math.floor(secs / 86400);
+	if (days < 1) {
+		if (!ts) return 'today';
+		if (secs < 60) return 'just now';
+		if (secs < 3600) return ago(Math.floor(secs / 60), 'min');
+		return ago(Math.floor(secs / 3600), 'hour');
+	}
+	if (days < 7) return ago(days, 'day');
+	if (days < 30) return ago(Math.floor(days / 7), 'week');
+	if (days < 365) return ago(Math.floor(days / 30), 'month');
+	return ago(Math.floor(days / 365), 'year');
+}
+
+/** Season heading for a show page's sections: "Season 2", "Specials" for season 0 (the Kodi/Emby
+ *  convention), and "Other episodes" for files that carry no season number at all. */
+export function fmtSeason(season?: number | null): string {
+	if (season == null) return 'Other episodes';
+	return season === 0 ? 'Specials' : `Season ${season}`;
+}
+
 export function relDate(ts?: number | null, uploadDate?: string | null): string {
 	const d = dateFrom(ts, uploadDate);
 	if (!d || isNaN(+d)) return '';

@@ -1,5 +1,11 @@
 import { error } from '@sveltejs/kit';
-import { getVideo, relatedVideos, webPrefersCompat } from '$lib/server/queries';
+import {
+	getVideo,
+	relatedVideos,
+	listVideos,
+	webPrefersCompat,
+	channelSupportLinks
+} from '$lib/server/queries';
 import { resolveTracks, audioTracksFor } from '$lib/server/subsembed';
 import { canSeeChannel } from '$lib/server/visibility';
 import { getWatch, watchedAtSeconds, resumePosition } from '$lib/server/watch';
@@ -7,6 +13,9 @@ import { hlsEnabled } from '$lib/server/hls';
 import { getUserPrefs, DEFAULT_PREFS } from '$lib/server/prefs';
 import { fedPlaybackUrls } from '$lib/server/fedclient';
 import type { PageServerLoad } from './$types';
+
+/** How many feed items the rail's Recent tab carries (Related stays at eight). */
+const RECENT_RAIL = 12;
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const video = getVideo(params.id);
@@ -17,6 +26,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// Indexed (video_tags) so it's ~0.2ms — cheap to load in SSR, which lets the page place
 	// it under the video on mobile and in the sidebar on desktop from a single source.
 	const related = locals.user ? relatedVideos(params.id, locals.user.id, 8) : [];
+	// The rail's second tab: the Recent feed exactly as the home page orders and filters it (unwatched,
+	// visibility, per-user hides, the libraries' show-in-Recent opt-out), minus this video. Browse-only:
+	// up-next and autoplay keep following `related`, so the tab can never change what plays next.
+	const recent = locals.user
+		? listVideos({ limit: RECENT_RAIL + 1, userId: locals.user.id })
+				.filter((r) => r.id !== params.id)
+				.slice(0, RECENT_RAIL)
+		: [];
 
 	// FEDERATED video: media streams DIRECT from the peer — fetch absolute peer-signed URLs for the
 	// player (contract §Federation). Peer down → the page still renders (metadata + related are
@@ -55,8 +72,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	return {
 		video,
+		// The creator's support links (channel-level; supportlinks.ts) — rendered under the channel line.
+		supportLinks: channelSupportLinks(video.channel_id),
 		watch,
 		related,
+		recent,
 		preferCompat,
 		hlsEnabled: hls,
 		srcUrl,

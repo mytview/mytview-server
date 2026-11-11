@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { hoverPreviewEnabled, setHoverPreview } from '$lib/hoverPreview';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -19,6 +20,13 @@
 	});
 	onDestroy(() => {
 		if (pollTimer) clearInterval(pollTimer);
+	});
+
+	// Hover previews are a per-browser choice (see $lib/hoverPreview), so it is read after mount, not
+	// from the load: the server has no idea what this browser picked.
+	let hoverPreview = $state(true);
+	onMount(() => {
+		hoverPreview = hoverPreviewEnabled();
 	});
 </script>
 
@@ -76,6 +84,30 @@
 			>
 		</div>
 	</form>
+
+	<h2 class="mt-8 mb-2 font-mono text-[11px] font-semibold tracking-widest text-faint uppercase">
+		Previews
+	</h2>
+	<div class="rounded-xl border border-line bg-base-200 p-5">
+		<label class="flex cursor-pointer items-start gap-3">
+			<input
+				type="checkbox"
+				class="mt-1 accent-primary"
+				checked={hoverPreview}
+				onchange={(e) => {
+					hoverPreview = e.currentTarget.checked;
+					setHoverPreview(hoverPreview);
+				}}
+			/>
+			<span>
+				<span class="text-sm">Play a preview when the pointer rests on a video</span>
+				<span class="mt-1 block text-[13px] text-muted">
+					Muted, with captions when the video has subtitles. Saved in this browser only, since it
+					needs a mouse or trackpad.
+				</span>
+			</span>
+		</label>
+	</div>
 
 	<h2 class="mt-8 mb-2 font-mono text-[11px] font-semibold tracking-widest text-faint uppercase">
 		Change password

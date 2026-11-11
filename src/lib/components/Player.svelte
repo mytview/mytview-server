@@ -26,7 +26,8 @@
 		subtitleColor = 'white',
 		remote = false,
 		width = null,
-		height = null
+		height = null,
+		theater = $bindable(false)
 	}: {
 		id: string;
 		title: string;
@@ -66,6 +67,9 @@
 		remote?: boolean;
 		width?: number | null;
 		height?: number | null;
+		// Theater mode, bound up to the page: the page has to change its own layout (see below), and it
+		// is also what carries the choice from one video to the next while this component remounts.
+		theater?: boolean;
 	} = $props();
 
 	// Local defaults preserve the pre-federation same-origin behavior byte-for-byte.
@@ -97,34 +101,35 @@
 	// when dimensions are unknown.
 	const portrait = $derived(!!width && !!height && height > width);
 
-	// "Theater" — expand the player to fit the browser window (width for landscape, height for
-	// portrait) without entering OS fullscreen. It's a fixed overlay, not the Fullscreen API, so the
-	// same <video> element keeps playing (toggling classes, not re-rendering, preserves playback).
-	let expanded = $state(false);
+	// "Theater" widens the player to the full browser width the way YouTube does: the page stays a
+	// page (it scrolls; the title, description and rail sit underneath) and only the player's box
+	// grows. It used to be a fixed black overlay with the background scroll locked, which hid
+	// everything else. The PAGE owns the layout change, because it has to lift its own width cap, so
+	// `theater` is bound up to it; here the switch only swaps classes on the same <video> element,
+	// which is what keeps playback running through it. Portrait videos never widen: they are bound by
+	// height, so a wider box would only add black bars.
+	const expanded = $derived(theater && !portrait);
 	function toggleExpand() {
-		expanded = !expanded;
+		theater = !theater;
 	}
 	$effect(() => {
 		if (!expanded) return;
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') expanded = false;
+			// Esc leaves theater, but not when it is already doing another job: closing the share
+			// dialog, or leaving OS fullscreen.
+			if (e.key !== 'Escape' || document.fullscreenElement || document.querySelector('dialog[open]'))
+				return;
+			theater = false;
 		};
 		window.addEventListener('keydown', onKey);
-		const prevOverflow = document.body.style.overflow;
-		document.body.style.overflow = 'hidden'; // lock background scroll while expanded
-		return () => {
-			window.removeEventListener('keydown', onKey);
-			document.body.style.overflow = prevOverflow;
-		};
+		return () => window.removeEventListener('keydown', onKey);
 	});
-	const frameClass = $derived(
-		expanded
-			? 'fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-2 sm:p-4'
-			: 'relative'
-	);
+	// Theater: a full-bleed black band; the video fills its width until the height cap, then
+	// pillarboxes inside the band. No border or rounding, since it runs edge to edge.
+	const frameClass = $derived(expanded ? 'relative bg-black' : 'relative');
 	const videoClass = $derived(
 		expanded
-			? 'max-h-full max-w-full rounded-lg bg-black'
+			? 'mx-auto block w-full max-h-[calc(100vh_-_10rem)] bg-black object-contain'
 			: portrait
 				? 'mx-auto block max-h-[calc(100vh_-_10rem)] max-w-full rounded-lg border border-line bg-black'
 				: 'w-full max-h-[calc(100vh_-_10rem)] rounded-lg border border-line bg-black object-contain'
@@ -713,19 +718,6 @@
 		{/each}
 	</video>
 
-	{#if expanded}
-		<button
-			onclick={toggleExpand}
-			aria-label="Exit theater view"
-			title="Exit (Esc)"
-			class="absolute top-3 right-3 z-10 rounded-lg bg-black/60 p-2 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/80"
-		>
-			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M18 6 6 18M6 6l12 12" />
-			</svg>
-		</button>
-	{/if}
-
 	{#if hlsFailed}
 		<div
 			class="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-lg bg-black/85 p-6 text-center backdrop-blur-sm"
@@ -824,7 +816,11 @@
 	{/if}
 </div>
 
-<div class="mt-2.5 flex flex-wrap items-center gap-3 font-mono text-xs">
+<div
+	class="mt-2.5 flex flex-wrap items-center gap-3 font-mono text-xs {expanded
+		? 'mx-auto w-full max-w-[1500px] px-[22px]'
+		: ''}"
+>
 	{#if resumedAt > 0}
 		<span class="text-muted"
 			>resumed at {fmtDuration(resumedAt)} ·
@@ -884,12 +880,17 @@
 			{/if}
 		</span>
 		{#if !portrait}
-			<!-- Theater = expand to the window WIDTH; only meaningful for landscape. Portrait videos
+			<!-- Theater widens the player to the window; only meaningful for landscape. Portrait videos
 			     are already height-capped + centered, so no theater button there. -->
 			<button
 				onclick={toggleExpand}
-				title="Theater — fit the player to the window (Esc to exit)"
-				class="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-muted transition-colors hover:text-base-content"
+				aria-pressed={expanded}
+				title={expanded
+					? 'Exit theater (Esc)'
+					: 'Theater: widen the player to the full window, the page still scrolls'}
+				class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 transition-colors {expanded
+					? 'border-primary/50 text-primary'
+					: 'border-line text-muted hover:text-base-content'}"
 			>
 				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 					<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M8 21H5a2 2 0 0 1-2-2v-3m18 0v3a2 2 0 0 1-2 2h-3" />

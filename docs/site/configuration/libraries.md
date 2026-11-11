@@ -29,6 +29,18 @@ A thumbnail is matched case-insensitively: `Title.jpg`, then `Title.mp4.jpg`, th
 and similar, then a lone image in the folder. The channel's avatar and banner come from `poster.*` and
 `fanart.*` in its folder; without a poster, the tile shows the newest video's thumbnail.
 
+**Support this creator.** Many creators put a tip jar or membership page in their video descriptions.
+When the same Patreon, Ko-fi, Buy Me a Coffee, PayPal, Liberapay, GitHub Sponsors, Open Collective,
+Tipeee or SubscribeStar page appears in at least three of a channel's videos (or in every video of a
+smaller channel), the channel page and its videos show it as a small row of links. If the channel folder
+also carries the channel's own description, in a channel-level metadata file written next to the videos
+or in the `<plot>` of a `tvshow.nfo`, a page named there is shown straight away, and the channel page
+shows that description under its header. Only links to those
+platforms' own sites count; a creator's short link on their own domain is not recognised. The links are read
+from the descriptions on each scan and point at the creator's own page; MytView fetches nothing,
+tracks nothing and takes no part in any payment. Sponsor links and the source site's own tipping
+buttons are never shown. The row is a web feature only; the apps do not show it.
+
 ## Series
 
 For TV shows in the Kodi/Emby layout: each immediate subfolder is a show, and every media file under

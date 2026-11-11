@@ -1,5 +1,14 @@
 /** Shared row/response types (safe to import on client and server). */
 
+/** A creator's own tip-jar / membership page, inferred from their video descriptions at scan time
+ *  (server/supportlinks.ts). `platform` is a stable key (`patreon`, `kofi`, …), `label` the display
+ *  name, `url` the canonical profile page. Web-only presentation for now (matrix §Sharing). */
+export interface SupportLink {
+	platform: string;
+	label: string;
+	url: string;
+}
+
 export interface ChannelSummary {
 	id: string;
 	name: string;
@@ -26,6 +35,11 @@ export interface ChannelSummary {
 	 *  genres. Drives the genre filter chips (client-side over the delivered list). Null/omitted for
 	 *  ytdl channels. */
 	genres?: string[] | null;
+	/** Promoted creator support links (see SupportLink). Only getChannel populates it; empty when none. */
+	supportLinks?: SupportLink[];
+	/** The channel's own description when the library carries one (a channel-level metafile or the show
+	 *  NFO's plot); null otherwise. Only getChannel (SELECT *) returns it. */
+	description?: string | null;
 }
 
 export interface VideoSummary {

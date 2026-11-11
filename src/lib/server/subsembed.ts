@@ -329,3 +329,107 @@ function extractOnce(relPath: string, streamIndex: number): Promise<string | nul
 		});
 	});
 }
+
+// --- a short WINDOW of an embedded track, for the card hover preview ---------------------------
+
+/** How many seconds of captions a hover preview gets, counted from where the preview starts. The
+ *  cost is linear in this (ffmpeg has to read that much of the FILE, since subtitle packets are
+ *  interleaved with the video), so it is sized for a hover, not for watching: a minute. */
+export const PREVIEW_SUB_WINDOW_SEC = 60;
+
+// (file|stream|mtime|from) → VTT. Memory only and small: a window is cheap to redo and only worth
+// keeping so that moving the pointer off a card and back doesn't spawn ffmpeg twice.
+const windowCache = new Map<string, string>();
+const WINDOW_CACHE_MAX = 60;
+// Its own one-at-a-time queue, separate from the whole-track one above: a window must not wait
+// behind a 30-second full extraction, and two windows still never read the disk at once.
+let windowChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * The captions for ONE WINDOW of an embedded track: `fromSec` to `fromSec + PREVIEW_SUB_WINDOW_SEC`.
+ *
+ * Why this exists: a whole track costs a demux of the entire container (`extractEmbeddedVtt` — tens
+ * of seconds for an episode on network storage), which is fine once when someone sits down to watch
+ * and far too much for a pointer resting on a card. A window is not: ffmpeg seeks to the start and
+ * stops as soon as the first packet past the end arrives, so it reads a few seconds of the file.
+ * Measured 2026-11-11 from a laptop over NFS: a 395 MB episode's whole track took 33.8 s, a
+ * three-minute window of it 2 s; a high-bitrate 90-minute episode took 10.8 s for three minutes,
+ * which is why the window is one minute (MKV subrip and MP4 mov_text behave alike).
+ *
+ * The cue times are ABSOLUTE (they match the video's own clock), which takes a specific spelling:
+ * `-ss` before `-i` with `-copyts`, and the end given as an OUTPUT `-to`. Without `-copyts` ffmpeg
+ * rebases the cues to the keyframe it landed on, a few seconds before `fromSec`, so they drift by
+ * that much; with `-copyts` an output `-t` counts from zero and yields nothing; and an input-side
+ * `-t`/`-to` is not applied to a lone subtitle stream, so it reads to the end of the file.
+ *
+ * If the whole track has already been extracted (someone watched this with captions on), that is
+ * returned instead: it is a superset and costs nothing. `signal` aborts the read when the request
+ * goes away (the pointer left). Null when ffmpeg is missing or the track won't convert.
+ */
+export async function extractEmbeddedWindow(
+	relPath: string,
+	streamIndex: number,
+	mtime: number,
+	fromSec: number,
+	signal?: AbortSignal
+): Promise<string | null> {
+	const fullKey = cacheKey(relPath, streamIndex, mtime);
+	const full = memCache.get(fullKey);
+	if (full !== undefined) return full;
+	if (SUBS_CACHE_DIR) {
+		try {
+			return await readFile(path.join(SUBS_CACHE_DIR, `${fullKey}.vtt`), 'utf-8');
+		} catch {
+			/* the whole track was never extracted — take a window */
+		}
+	}
+
+	const from = Number.isFinite(fromSec) ? Math.max(0, Math.floor(fromSec)) : 0;
+	const key = `${fullKey}|${from}`;
+	const hit = windowCache.get(key);
+	if (hit !== undefined) return hit;
+
+	const run = windowChain.then(() => (signal?.aborted ? null : extractWindowOnce(relPath, streamIndex, from, signal)));
+	windowChain = run.catch(() => {});
+	const vtt = await run;
+	if (vtt === null) return null;
+	if (windowCache.size >= WINDOW_CACHE_MAX) windowCache.delete(windowCache.keys().next().value as string);
+	windowCache.set(key, vtt);
+	return vtt;
+}
+
+function extractWindowOnce(
+	relPath: string,
+	streamIndex: number,
+	from: number,
+	signal?: AbortSignal
+): Promise<string | null> {
+	return new Promise<string | null>((resolve) => {
+		const proc = spawn(
+			'ffmpeg',
+			['-v', 'error', '-nostdin', '-threads', '1',
+			 ...(from > 0 ? ['-ss', String(from)] : []),
+			 '-copyts', '-i', path.join(MEDIA_ROOT, relPath),
+			 '-map', `0:${streamIndex}`, '-vn', '-an',
+			 '-to', String(from + PREVIEW_SUB_WINDOW_SEC), '-f', 'webvtt', '-'],
+			{ stdio: ['ignore', 'pipe', 'ignore'] }
+		);
+		let out = '';
+		const kill = () => proc.kill('SIGKILL');
+		const timer = setTimeout(kill, 20_000); // a window that takes this long is not a window
+		signal?.addEventListener('abort', kill, { once: true });
+		const done = (v: string | null) => {
+			clearTimeout(timer);
+			signal?.removeEventListener('abort', kill);
+			resolve(v);
+		};
+		proc.stdout.on('data', (d) => {
+			out += d.toString();
+			if (out.length > 2 << 20) kill(); // three minutes of captions is kilobytes, not megabytes
+		});
+		proc.on('error', () => done(null)); // ffmpeg missing → same as no track
+		// A window with no dialogue in it is still a valid (empty) track: "WEBVTT" and nothing else.
+		proc.on('close', (code) => done(code === 0 && out.trim() ? out : null));
+	});
+}
+
