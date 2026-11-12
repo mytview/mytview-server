@@ -1,6 +1,6 @@
 # Optional add-on: Intel VAAPI hardware encode for live HLS (amd64 + Intel iGPU).
 # Kept as a SEPARATE file because `devices:` fails container start on hosts without
-# /dev/dri — merge it in only where the hardware exists:
+# /dev/dri. Merge it in only where the hardware exists:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.hwaccel.yml up -d
 #

@@ -1,49 +1,32 @@
 # MytView Server
 
-**A clean, fast, read-only viewer for a self-hosted video library** — video files plus their
-metadata sidecars (`.info.json`, or Kodi/Emby-style `.nfo` for TV series and movies) — with
-multi-user accounts, per-user watch state, owner-controlled per-channel privacy, public share
-links, server-to-server federation, two-way Plex watch-state sync, and live HLS transcoding when
-a client can't play a file directly.
+**A media server that shows your video library and nothing else. Fast, private, read-only.**
 
-Run it on your own hardware (NAS, home server, mini-PC) and watch in any browser — or with the
-native **iPhone / iPad / Apple TV**, **Google TV**, and **Samsung TV (Tizen)** apps, which talk to
-this server over its [documented API](docs/api.md).
+[Website](https://mytview.com) · [Documentation](https://mytview.com/docs/) · [Privacy](https://mytview.com/privacy/)
 
-- 🔒 **Private by design** — no cloud, no analytics, no ads. Streams go straight from your server to your device.
-- 📚 **Read-only** — your library is mounted `:ro`; MytView never writes to, moves, or deletes your files.
-- 👥 **Multi-user** — per-person sign-in, watch state, and resume points. Invite-based signup; the owner can reset passwords, deactivate, or remove accounts. Per-device session management with server-side revocation.
-- 🔦 **Per-channel privacy** — mark channels public or private and grant private ones to specific people, from a per-user × per-channel grid.
-- 📺 **Channels, series, and movies** — creator-channel libraries (`.info.json` sidecars), TV-series libraries (`.nfo` + `S01E02` naming, season/episode ordering, next-episode tracking), and movie libraries (the Kodi layout media managers write, a 2:3 poster wall with genre filters and sort). Libraries are configured in the UI, not env vars; fully-watched shows tidy themselves out of the grids until something new arrives.
-- 🎞️ **Direct-play first, live HLS fallback** — every client tries the original file first; when it can't decode it, the server live-transcodes an ephemeral HLS stream that starts in seconds (VAAPI hardware encode when available, CPU fallback). Nothing is pre-transcoded or stored long-term.
-- 💬 **Subtitles & captions** — picked up from `.srt`/`.vtt` files next to the video *or* from text tracks inside the `.mkv`/`.mp4` itself, with SDH/CC marked as captions. Nothing is downloaded: what's on disk is what you get. **Image-based subtitles (PGS/VobSub) are not supported** — they're pictures of text and would need OCR or a burned-in re-encode; use a text (SRT) version instead.
-- 🔗 **Share links** — per-video public links with expiry and view caps, link-preview cards, and the same live-HLS fallback for recipients.
-- 🌐 **Federation** — peer with **any number** of other MytView servers, sharing and consuming in both directions. Share different channels, shows, or whole libraries with each household; everything you consume merges into your own libraries (browse, search, and watch state stay on *your* server) while video streams flow **directly** from whichever server holds the file — plus per-peer concurrent-stream caps and consumption stats for the sharer.
-- 📲 **Offline on the phone** — the iPhone/iPad app (Android in open testing) keeps movies and episodes on the device and follows a series for the next unwatched ones; the server hands out each copy in the format the device plays (H.264 and HEVC MKVs are remuxed, not re-encoded), paced by a negotiated session budget so a batch never crowds out someone watching live.
-- 🔄 **Plex sync** — two-way watched-state and resume-point sync with a Plex server on the same library. Each user links their own Plex account (plex.tv PIN flow); years of existing Plex history import on the first sync, and an unwatch in either app propagates to the other.
-
-Website: **https://mytview.com** · Privacy: **https://mytview.com/privacy/**
-
-## Screenshots
+MytView does one job: it shows the video library on your own disks, quickly, to the people you
+share it with. No streaming catalogue, no rentals, no "discover" tab, no ads, no account with
+anybody's cloud. It runs as one container on a NAS or home server, and you watch in a browser or in
+the apps for iPhone, iPad, Apple TV, Android, Google TV and Samsung TV.
 
 <p align="center">
   <img src="docs/screenshots/web-hero.jpg" width="820" alt="The web app: the Recent feed of a library, with the main features called out" />
 </p>
-<p align="center">
-  <img src="docs/screenshots/iphone-recent.jpg" width="196" alt="Recent feed on iPhone" />
-  <img src="docs/screenshots/iphone-offline.jpg" width="196" alt="Offline mode on iPhone: the copies on the device" />
-  <img src="docs/screenshots/iphone-download.jpg" width="196" alt="Downloading a video on iPhone" />
-  <img src="docs/screenshots/android-library.jpg" width="196" alt="Library on an Android phone" />
-</p>
 
-*The demo library in these shots is Blender's open movies and NASA public-domain footage.*
+- **Fast.** Nothing is looked up online. Titles, artwork and descriptions come from the `.nfo` and
+  `.info.json` files already next to your videos, so a scan is a walk through your folders and the
+  first items appear in seconds. Devices play the original file, and the server transcodes live
+  only when a device can't.
+- **Private.** The only account is on your own server. No telemetry, no licence check, no outbound
+  connections unless you switch on Plex sync or federation. Video goes straight from your server
+  to your screen.
+- **Read-only.** The library is mounted `:ro`, so nothing is renamed, moved or written next to your
+  files. It runs beside Plex or Jellyfin on the same folders.
 
----
+The trade-off: it shows what is on disk. If your library has no `.nfo` files or artwork, MytView
+will not fetch them.
 
-## Quick start (Docker)
-
-**Unraid:** install from Community Applications (search `MytView`); the template lives at
-https://github.com/mytview/unraid-templates. Everything else: the compose file below.
+## Quick start
 
 ```yaml
 # docker-compose.yml
@@ -54,158 +37,91 @@ services:
     restart: unless-stopped
     ports:
       - "8700:8700"
-    environment:
-      ALLOW_SIGNUP: invite            # first account becomes the owner
-      # ORIGIN: https://mytview.example.com     # only behind a reverse proxy / TLS
-      # ADDRESS_HEADER: x-forwarded-for         # only behind a reverse proxy / CDN
     volumes:
-      - /path/to/your/library:/media:ro   # your video library — READ-ONLY
-      - mytview-data:/data                # accounts + watch state + index (back this up)
-      - /path/to/scratch:/transcodes      # writable scratch for live-HLS segments
+      - /path/to/your/library:/media:ro   # your videos, read-only
+      - mytview-data:/data                # accounts, watch state, index: back this up
+      - /path/to/scratch:/transcodes      # scratch space for live transcoding
 volumes:
   mytview-data:
 ```
 
-```bash
-docker compose up -d
-```
+Run `docker compose up -d`, then open **http://your-host:8700**:
 
-Open **http://your-host:8700** and **sign up** — the first account bootstraps the owner. After
-that, signup requires a single-use invite (from `/invite`) unless `ALLOW_SIGNUP=all`.
+1. **Sign up.** The first account becomes the owner. After that, signing up needs an invite.
+2. **Add a library** (avatar menu → Server → Libraries): a name, a format and a folder under
+   `/media`. Nothing is indexed until you do.
 
-## Configuration
+Other ways to install:
 
-### Volumes
-| Container path | Purpose | Notes |
+- **Unraid:** search `MytView` in Community Applications.
+- **Synology, TrueNAS, CasaOS, OpenMediaVault:** see the [install guide](https://mytview.com/docs/install/).
+- **Intel iGPU for transcoding:** add the override file,
+  `docker compose -f docker-compose.yml -f docker-compose.hwaccel.yml up -d`.
+- **Behind a reverse proxy or Cloudflare:** see [Behind a reverse proxy](https://mytview.com/docs/configuration/reverse-proxy/).
+
+## What your library needs to look like
+
+A library is a folder under `/media` in one of three formats:
+
+| Format | Layout | Metadata read |
 | --- | --- | --- |
-| `/media` | Your video library | Mount **read-only** (`:ro`). MytView never modifies it. |
-| `/data` | Accounts, sessions, watch state + the search index | **Durable — back this up.** The index rebuilds from disk; your users/progress do not. |
-| `/transcodes` | Scratch space for live-HLS segments | Segments exist only while someone is watching and are cleaned up after. Keep it outside your library. |
+| Movies | `Movie Name (2024)/Movie Name (2024).mkv` | `movie.nfo`, `poster.jpg`, `fanart.jpg` |
+| Series | `Show Name/Season 1/Show - S01E02 - Title.mkv` | Kodi/Emby `.nfo` files and local artwork, or `SxxExx` in the filename when there is no `.nfo` |
+| Channels | `Channel Name/Video Title.mp4` | `Video Title.info.json` beside it: title, date, description, tags |
 
-### Environment
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `ALLOW_SIGNUP` | `invite` | `invite` (first account = owner, then invite-only), `all`, or `off`. |
-| `ALLOW_INVITES` | `owner` | Who may create invite links: `owner` or `all`. |
-| `ORIGIN` | — | Your external URL — set **only** behind a reverse proxy / TLS. Leave it unset otherwise (from 0.4.10 a blank value counts as unset; older images refuse to start on a blank `ORIGIN`). |
-| `ADDRESS_HEADER` | — | Behind a proxy/CDN, the header carrying the real client IP (e.g. `x-forwarded-for`), so login rate limits see clients rather than the proxy. |
-| `TRANSCODE_HWACCEL` | `0` | `1` = Intel VAAPI hardware encode for live HLS (needs `/dev/dri` passthrough; amd64). Falls back to CPU automatically. |
-| `EMBEDDED_SUBS` | `1` | `off` stops the server reading subtitle tracks out of `.mkv`/`.mp4` containers (sidecar `.srt`/`.vtt` files still work). Extraction reads the whole container once per file, so on slow network storage turning it off is a reasonable choice. |
-| `SUBS_CACHE_DIR` | `/transcodes/subcache` | Where extracted subtitle text is cached, so a container is only ever read once. `off` = memory only. |
-| `HLS_DIR` | `/transcodes/hls` | Where live-HLS session segments are written. `off` disables live transcoding (direct-play only). |
-| `SCAN_INTERVAL` | `5` | Auto-rescan interval in minutes (`0` disables). Incremental and cheap. |
-| `EXTERNAL_URL` | — | The public address federation invites embed — needed only to **share** via federation and only when the auto-detected address is wrong (e.g. a bare `ip:port` server without TLS). |
+Every detail is in [Libraries and formats](https://mytview.com/docs/configuration/libraries/).
 
-Federation and Plex sync are configured **in the app**, not the environment: pairing, library
-mappings, sync cadence, and per-peer stream caps live on the owner pages; what gets shared is
-picked on the Sharing page; each user links Plex from their own Account page.
+## What is in it
 
-Baked into the image (override only if you must): `PORT=8700`, `HOST=0.0.0.0`,
-`MEDIA_ROOT=/media`, `DB_PATH=/data/index.db`, `TRANSCODE_DIR=/transcodes`.
+- **Films, shows and creator channels.** A poster wall with genres for films, seasons and
+  next-episode for shows, and a newest-first feed across channels, with their own descriptions
+  and tags.
+- **Accounts by invite**, each with their own history and resume points. Channels, shows and
+  movie collections can be private to the people you choose.
+  [Accounts](https://mytview.com/docs/configuration/accounts/) ·
+  [Sharing and privacy](https://mytview.com/docs/configuration/sharing/)
+- **Direct play first.** When a device cannot decode a file, the server transcodes it live
+  (Intel VAAPI, or CPU). Nothing is converted ahead of time or stored.
+  [Playback](https://mytview.com/docs/configuration/playback/)
+- **Subtitles and audio tracks** from `.srt` and `.vtt` files or from text tracks inside the file.
+  Image-based subtitles (PGS, VobSub) are not supported.
+  [Subtitles](https://mytview.com/docs/configuration/subtitles/)
+- **Share links** for a single video, with an expiry and a view cap.
+  [Share links](https://mytview.com/docs/configuration/share-links/)
+- **Federation.** Pair with other MytView servers to share a show or a whole library with another
+  household. Their catalogue merges into your libraries, and video streams directly from the
+  server that holds the file. [Federation](https://mytview.com/docs/configuration/federation/)
+- **Plex sync.** Two-way sync of watched state and resume points with a Plex server on the same
+  files, linked per user. [Plex sync](https://mytview.com/docs/configuration/plex/)
+- **Offline downloads** in the iPhone and iPad app.
 
-### Hardware transcoding (amd64 + Intel iGPU)
-The repo ships [`docker-compose.hwaccel.yml`](docker-compose.hwaccel.yml) as a merge-in
-override, so the base compose stays runnable on hosts without a GPU:
+Reference: [environment variables](https://mytview.com/docs/reference/environment/) ·
+[troubleshooting](https://mytview.com/docs/reference/troubleshooting/)
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.hwaccel.yml up -d
-```
+## The apps
 
-(Equivalent by hand: `TRANSCODE_HWACCEL: "1"` plus `devices: [/dev/dri:/dev/dri]`.)
+The web player ships with the server and is complete on its own. The native apps are separate,
+closed-source products by the same author:
 
-### Reverse proxies and Cloudflare
+- **iPhone, iPad, Apple TV:** [App Store](https://apps.apple.com/app/id6790113115)
+- **Android phone, tablet, Google TV:** [Google Play](https://play.google.com/store/apps/details?id=com.mytview.app),
+  an open beta, no invite needed
+- **Samsung TV:** free, and in review for the Samsung store. Until it is listed, you can
+  [build it from source and sideload it](https://github.com/mytview/mytview-tizen).
 
-MytView is plain HTTP: no WebSockets, no server-sent events, so any reverse proxy works with
-its defaults, plus two things worth knowing:
+The apps start with a 14-day free trial, then a small one-time purchase per store, with no
+subscription. An app installed before 1 November 2026 stays free forever, with nothing to claim.
 
-- **Read timeout for `/hls/`**: at least 60 s. A download's playlist can wait 20 s on a file's
-  one-time keyframe scan, and a segment up to 45 s on a slow encode; a proxy that gives up sooner
-  turns those into 502/504s the apps read as "server busy".
-- **Cloudflare**: a proxied (orange-cloud) hostname works; the demo server runs that way. What
-  breaks the apps is bot protection that challenges non-browser clients, which answers **403** to
-  the app while Safari and Chrome pass: **Security → Bots → Bot Fight Mode** (the Free-plan one
-  cannot be exempted per hostname or path), a WAF managed or custom rule with a challenge action,
-  or Security Level "I'm Under Attack". Turn the one that is on off for the zone, or on a paid plan
-  tune Super Bot Fight Mode to allow that hostname; everything else about the proxy can stay.
-- **Nginx Proxy Manager**: an Access List other than "Publicly Accessible" answers 403 to the apps
-  (they send no basic auth and may be on cellular). "Block Common Exploits" and "Websockets
-  Support" are harmless either way.
+<p align="center">
+  <img src="docs/screenshots/iphone-recent.jpg" width="196" alt="Recent feed on iPhone" />
+  <img src="docs/screenshots/iphone-offline.jpg" width="196" alt="Offline mode on iPhone: the copies on the device" />
+  <img src="docs/screenshots/iphone-download.jpg" width="196" alt="Downloading a video on iPhone" />
+  <img src="docs/screenshots/android-library.jpg" width="196" alt="Library on an Android phone" />
+</p>
 
-A quick check from any machine: `curl -i -X POST https://your-host/api/v1/auth/login -H
-'Content-Type: application/json' -d '{"username":"x","password":"y"}'` should answer **401**
-(bad credentials). A 403 there is the proxy layer, not MytView.
+*The demo library in these shots is Blender's open movies and NASA public-domain footage.*
 
-## Library layout
-
-Two library formats, configured by the owner in the UI (**Libraries** in the avatar menu) —
-any subfolder of `/media` can be its own library:
-
-- **Channels** — `Channel Name/…/Video Title.mp4` + a sibling `Video Title.info.json`
-  (title, date, description, tags, thumbnail…). Channels are keyed by their top-level folder.
-- **Series** — `Show Name/Season 1/Show - S01E02 - Title.mkv` with Kodi/Emby `.nfo` sidecars
-  and local artwork (`poster.jpg`, `fanart.jpg`, `-thumb.jpg`), the layout media managers write.
-  Falls back to `SxxExx` filename parsing when no `.nfo` exists.
-
-- **Movies** — `Movie Name (2024)/Movie Name (2024).mkv` with `movie.nfo` + `poster.jpg`/
-  `fanart.jpg` (the Kodi layout media managers write). Rendered as a poster wall with genre filters and
-  title/year/recently-added sorting.
-
-**Creator archives that look like TV shows.** Some download tools present a creator's channel as a
-show (`Show/Season 2021/s2021.e031701 - Title.mp4`) and write both yt-dlp's `.info.json` sidecar and
-a Jellyfin/Kodi `.nfo`. Either library type handles that folder: MytView reads the `.info.json` and
-indexes it as a channel (real titles, upload dates, descriptions, tags), with the same video ids in
-a Channels or a Series library, so watch state survives if you switch. A show with `.nfo` files only
-and date-coded episode numbers is shown by date rather than as "S2021 E31701".
-
-Libraries are explicit: with none configured, nothing is indexed and the first-run screen walks
-the owner through adding one (any subfolder — or the root — per library).
-
-## Federation (share with another household)
-
-A MytView server can peer with **as many other servers as you like**, sharing to some and
-consuming from others (or both with the same peer). Pairing is per-peer: one owner mints a
-single-use invite, the other pastes it. The sharer then picks channels/shows/libraries **per
-peer** on the Sharing page — each federated server appears as one more column next to your
-users, and a whole-library share covers future content automatically. The consumer maps each
-shared library into one of their own — or a new virtual library, and several peers' libraries
-can merge into the same one — with the same feed, search, tags, and per-user watch state, all
-served by the consumer's server. **Media never relays**: playback streams
-directly from the sharing server to the viewer's device via short-lived signed URLs, so a slow
-home uplink is never in the middle. Duplicate items (the same movie on both servers) collapse
-automatically — the local copy wins.
-
-## Plex sync
-
-If a Plex Media Server serves the same files, MytView keeps watch state agreed both ways:
-watched flags and resume positions sync per user, in both directions, every few minutes. Items
-pair by tmdb/imdb/tvdb ids with a file-path fallback; the first sync imports existing Plex
-history without un-watching anything. Setup: the owner sets the Plex address on their Account
-page; each user links their own Plex account there via plex.tv/link.
-
-## Clients & API
-
-The web UI ships with the server. The native apps (iPhone/iPad/Apple TV, Google TV,
-Samsung TV) are separate, closed-source products by the same author — the Samsung app is free.
-
-They start with a 14-day free trial, then a small one-time purchase per store (no subscription).
-**An app installed before 1 November 2026 stays free forever**: a founder licence, detected from
-the install date itself, with nothing to claim or register.
-
-**Get the apps:**
-
-- **iPhone / iPad / Apple TV**: [on the App Store](https://apps.apple.com/app/id6790113115) — iPhone
-  and iPad 1.2 with offline downloads, Apple TV 1.1
-- **Android phone / tablet / Google TV**: [on Google Play](https://play.google.com/store/apps/details?id=com.mytview.app)
-  as an open beta, no invite needed (offline downloads are in testing and follow in the next release)
-- **Samsung TV**: free for everyone, lands on the Samsung store when Samsung's review completes —
-  [watch releases](https://github.com/mytview/mytview-server/releases) for the announcement. Until
-  then, as a temporary workaround, the app can be [built from source and sideloaded](https://github.com/mytview/mytview-tizen)
-  onto your own TV with Samsung's free developer tools.
-
-Third-party clients are welcome: the full client contract — auth and device pairing, the
-video/playback descriptors, watch-state rules, and the capabilities negotiation — is documented
-in [`docs/api.md`](docs/api.md). `GET /api/v1/status` advertises `serverVersion` and a
-`capabilities` list to feature-gate against.
+Third-party clients are welcome. The client API is documented in [`docs/api.md`](docs/api.md).
 
 ## Development
 
@@ -213,15 +129,15 @@ in [`docs/api.md`](docs/api.md). `GET /api/v1/status` advertises `serverVersion`
 npm install
 cp .env.example .env    # set MEDIA_ROOT to a local path
 npm run dev             # Vite dev server
-npm run check           # svelte-check — must stay clean
+npm run check           # svelte-check, must stay clean
 npm test                # vitest suite
 npm run build && node build   # production build (adapter-node)
 ```
 
-Runtime dependencies are deliberately minimal: SvelteKit + `better-sqlite3` (+ `hls.js` on the
-web player). Transcoding shells out to `ffmpeg`/`ffprobe` (bundled in the Docker image). Two
-SQLite databases live in `/data`: `index.db` (disposable cache, rebuilt by scanning) and
-`state.db` (durable: users, sessions, watch state — the only thing worth backing up).
+Runtime dependencies are deliberately few: SvelteKit, `better-sqlite3`, and `hls.js` in the web
+player. Transcoding shells out to `ffmpeg` and `ffprobe`, which the image bundles. `/data` holds two
+SQLite databases: `index.db`, a cache rebuilt by scanning, and `state.db`, the accounts and watch
+state, which is the one thing to back up.
 
 ## How it is built
 
@@ -233,5 +149,5 @@ requests about what the software does are very welcome.
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE). Contributions are welcome under the terms in
+GPL-3.0, see [LICENSE](LICENSE). Contributions are welcome under the terms in
 [CONTRIBUTING.md](CONTRIBUTING.md).

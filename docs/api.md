@@ -308,7 +308,7 @@ library). The rules every client mirrors:
   relatedness entries never leak) with the chip options from `channel.genres` (the aggregate).
 - **Shows genre filter:** series channels carry **`genres`** (tvshow.nfo `<genre>`s) on Channel
   objects — filter the shows GRID client-side; genres are deliberately NOT exploded onto episodes
-  (that would flood /tag pages with every episode of every drama). ytdl channel videos fold YouTube's
+  (that would flood /tag pages with every episode of every drama). Channel videos fold the sidecar's
   `categories` into their tags instead (browsable via /tag).
 - Everything else (watch state, resume, playback descriptor, HLS fail-open, visibility) is identical —
   a movie is a video row.
@@ -540,8 +540,8 @@ HLS when it can't — and "can't" must NEVER be silent.** The policy is identica
 3. Walk the fallback ladder to `hlsUrl` (universal — present for every id).
 
 Only the step-2 DETECTOR is per-platform, because each player signals differently. A library can
-never "behave differently" from another: libraries only differ in codec population (ytdl H.264/AAC
-vs Radarr DV/HEVC-10bit remuxes) — this guarantee makes the outcome uniform regardless.
+never "behave differently" from another: libraries only differ in codec population (creator videos in H.264/AAC
+vs film remuxes in Dolby Vision or 10-bit HEVC) — this guarantee makes the outcome uniform regardless.
 
 | Platform | error signal | silent-failure detector |
 | --- | --- | --- |

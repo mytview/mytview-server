@@ -17,18 +17,18 @@ Thanks for wanting to improve MytView! A few ground rules keep the project healt
   See [`docs/api.md`](docs/api.md).
 - Schema changes must migrate an existing database in place without crashing on startup
   (additive `ALTER TABLE` guarded by column checks; indexes over migrated columns created
-  after the ALTERs). There are tests for this pattern — add one for yours.
+  after the ALTERs). There are tests for this pattern; add one for yours.
 
 ## Licensing of contributions
 
 MytView's server is licensed under **GPL-3.0**. By submitting a contribution you agree that:
 
 1. You have the right to submit it (your own work, or compatibly licensed), and you certify
-   the [Developer Certificate of Origin](https://developercertificate.org/) — please
+   the [Developer Certificate of Origin](https://developercertificate.org/). Please
    sign-off your commits (`git commit -s`).
 2. You additionally grant the project maintainer a perpetual, worldwide, non-exclusive,
    royalty-free license to use, modify, sublicense, and **relicense** your contribution as
-   part of MytView. (This keeps future licensing decisions — e.g. moving to AGPL — possible
+   part of MytView. (This keeps future licensing decisions, e.g. moving to AGPL, possible
    without tracking down every past contributor. Your contribution always also remains
    available under GPL-3.0.)
 
@@ -42,7 +42,7 @@ cp .env.example .env   # point MEDIA_ROOT at a local folder with a few test vide
 npm run dev
 ```
 
-`npm test` runs the vitest suite (no media required — tests build their own fixtures).
+`npm test` runs the vitest suite (no media required: tests build their own fixtures).
 
 ## AI-assisted work
 
