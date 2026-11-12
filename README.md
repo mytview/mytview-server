@@ -1,7 +1,5 @@
 # MytView Server
 
-> *Say it "mighty view" — and the first four letters are **MyTV**.*
-
 **A clean, fast, read-only viewer for a self-hosted video library** — video files plus their
 metadata sidecars (`.info.json`, or Kodi/Emby-style `.nfo` for TV series and movies) — with
 multi-user accounts, per-user watch state, owner-controlled per-channel privacy, public share
