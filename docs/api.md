@@ -343,7 +343,9 @@ needs to know is deliberately tiny:
 - **DEDUPE: local content wins (2026-08-12).** The consumer's sync skips any remote video whose
   RAW content id (yt/tvdb/tmdb-keyed) already exists locally, and a remote channel whose id+kind
   matches a local channel in the target library merges INTO it (no duplicate tile; the remote
-  fills gaps only). Pre-existing duplicates self-heal on the next sync. Known limit: NFO-less
+  fills gaps only). Pre-existing duplicates self-heal on the next sync, and a local copy that is
+  later removed is replaced by the peer's copy on the next sync after the scan drops it (its
+  watch state does not carry over: the two rows have different ids). Known limit: NFO-less
   episodes use relpath-hashed fallback ids, which differ across servers and therefore don't
   dedupe at the episode level.
 - **Requirements the operator owns** (surface in errors, don't work around): the SHARER must be

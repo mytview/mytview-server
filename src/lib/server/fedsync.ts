@@ -166,6 +166,11 @@ let _last: FedSyncStats | null = null;
  *  so a restart just refetches once. Deliberately NOT derived from local mirrored counts: dedupe
  *  skips locally-present videos, so local counts no longer equal the remote's. */
 const _fingerprints = new Map<string, string>();
+/** The RAW ids each channel's last fetch left out because a local copy existed (dedupe), keyed like
+ *  the fingerprints. The change-skip reads it: when one of those local copies is gone, the channel
+ *  refetches so the peer's copy fills the gap. Without it the gap stayed until the remote changed
+ *  or this server restarted (found by a reader of the source, 2026-11-12). */
+const _dedupeSkipped = new Map<string, string[]>();
 
 export function fedSyncStatus(): { syncing: boolean; last: FedSyncStats | null } {
 	return { syncing: _syncing, last: _last };
@@ -366,7 +371,9 @@ async function syncLink(link: FedLink, stats: FedSyncStats): Promise<boolean> {
 		// Change-skip on the REMOTE fingerprint (keyed to the mapping target too, so a remap
 		// refetches). The skip additionally requires mirrored rows to actually exist — a purge/
 		// unmap must refetch even though the remote didn't change — and refuses when a mirrored id
-		// now collides with a newly-arrived local raw id (the refetch then drops the duplicate).
+		// now collides with a newly-arrived local raw id (the refetch then drops the duplicate), or
+		// when a local copy that deduped a remote video is GONE (the refetch then mirrors the remote
+		// one: local-wins must work in both directions, arriving and leaving).
 		// A fully-deduped twin (0 mirrored, remote non-empty) deliberately refetches every sync:
 		// correctness over the saved metadata fetch.
 		const fpKey = `${link.id}:${c.id}:${localChannelId}`;
@@ -377,7 +384,8 @@ async function syncLink(link: FedLink, stats: FedSyncStats): Promise<boolean> {
 				const parts = fedIdParts(r.id);
 				return !!parts && !!localVideoExists.get(parts.remoteId);
 			});
-			if (!collided && (current.length > 0 || c.video_count === 0)) {
+			const reopened = (_dedupeSkipped.get(fpKey) ?? []).some((id) => !localVideoExists.get(id));
+			if (!collided && !reopened && (current.length > 0 || c.video_count === 0)) {
 				for (const r of current) expectedVideos.add(r.id);
 				stats.videos += current.length;
 				continue;
@@ -423,9 +431,13 @@ async function syncLink(link: FedLink, stats: FedSyncStats): Promise<boolean> {
 		}
 		// Chunked transactions + event-loop yields (the async-indexer rule — sync writes, small batches).
 		const CHUNK = 50;
+		const skippedLocal: string[] = [];
 		const writeChunk = database.transaction((rows: CleanVideo[]) => {
 			for (const v of rows) {
-				if (localVideoExists.get(v.id)) continue; // dedupe: the local copy wins (design §7)
+				if (localVideoExists.get(v.id)) {
+					skippedLocal.push(v.id); // dedupe: the local copy wins (design §7); remembered for the skip
+					continue;
+				}
 				const vid = fedId(prefix, v.id);
 				upsertVideo.run({
 					id: vid,
@@ -471,6 +483,7 @@ async function syncLink(link: FedLink, stats: FedSyncStats): Promise<boolean> {
 		}
 		stats.videos += clean.length;
 		_fingerprints.set(fpKey, fp);
+		_dedupeSkipped.set(fpKey, skippedLocal);
 	}
 
 	// Per-link prune — reached ONLY on a clean catalog (any FedError above threw before this point).

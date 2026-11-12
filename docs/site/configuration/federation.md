@@ -47,6 +47,7 @@ never leaves the consumer.
    reports that the peer is unreachable.
 
 **Duplicates:** local content wins. A remote video whose id already exists locally is not mirrored,
-and a remote channel with the same id merges into the local tile. Episodes that lack an id in their
+and a remote channel with the same id merges into the local tile. If you later delete your local
+copy, the peer's copy takes its place on the next sync. Episodes that lack an id in their
 `.nfo` cannot be matched and may appear twice. Federated viewers count against the *sharer's*
 transcode limits. Federated items never take part in Plex sync.

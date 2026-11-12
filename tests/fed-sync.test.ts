@@ -8,6 +8,7 @@
  * survival. Design: docs/federation-design.md.
  */
 import { describe, it, expect, vi, afterAll } from 'vitest';
+import fs from 'node:fs';
 import path from 'node:path';
 import { tempEnv, writeChannelVideo, writeShow, writeMovie } from './helpers';
 
@@ -359,5 +360,42 @@ describe('dedupe: local content wins (design §7)', () => {
 		const heats = wall.videos.filter((v) => v.id.includes('tmdb-949'));
 		expect(heats).toHaveLength(1);
 		expect(heats[0].id).toBe('tmdb-949'); // the LOCAL row — the remote copy was never mirrored
+	});
+
+	it("a local copy deleted later is filled back in by the peer's copy, with the change-skip still on", async () => {
+		const link = fed.listLinks('consumer')[0];
+		const myFilms = listLibraries().find((l) => l.name === 'My Films')!;
+		const wallId = `movies:${myFilms.id}`;
+		const wallIds = () => getChannel(wallId, uid, true)!.videos.map((v) => v.id).sort();
+
+		// The peer gains a second film, so the wall holds a MIRRORED row next to the deduped Heat.
+		// That is the case the skip used to get wrong: mirrored rows exist, the remote is unchanged.
+		const remoteWall = (holder.catalog.channels as { id: string; kind: string; video_count: number }[]).find(
+			(c) => c.kind === 'movies'
+		)!;
+		const remoteFilms = holder.videos[remoteWall.id] as { items: Record<string, unknown>[] };
+		remoteFilms.items.push({ ...remoteFilms.items[0], id: 'tmdb-600', title: 'Full Metal Jacket' });
+		remoteWall.video_count += 1;
+		await runFedSync(link.id);
+		expect(wallIds()).toEqual([`fed:${PREFIX}:tmdb-600`, 'tmdb-8195', 'tmdb-949']);
+
+		// Unchanged remote → the skip engages (this is what must keep working).
+		holder.videoFetches = 0;
+		await runFedSync(link.id);
+		expect(holder.videoFetches).toBe(0);
+
+		// The local Heat leaves the disk; the scan drops its row. The remote did NOT change.
+		fs.rmSync(path.join(env2.mediaRoot, 'MyMovies', 'Heat (1995)'), { recursive: true, force: true });
+		await scan();
+		expect(wallIds()).toEqual([`fed:${PREFIX}:tmdb-600`, 'tmdb-8195']);
+
+		// The next sync notices the gap and mirrors the peer's Heat…
+		await runFedSync(link.id);
+		expect(wallIds()).toEqual([`fed:${PREFIX}:tmdb-600`, `fed:${PREFIX}:tmdb-949`, 'tmdb-8195']);
+
+		// …and the one after that is back to fetching nothing.
+		holder.videoFetches = 0;
+		await runFedSync(link.id);
+		expect(holder.videoFetches).toBe(0);
 	});
 });
